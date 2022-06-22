@@ -1,0 +1,13 @@
+---
+- name: Verify
+  hosts: all
+
+  tasks:
+    - name: Execute mongo version to capture output
+      command: "packer --version"
+      register: packer_current_version
+
+    - name: Ensure mongo version output contains correct version string
+      assert:
+        that:
+          - packer_current_version.rc == 0

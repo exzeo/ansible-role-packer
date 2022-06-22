@@ -1,0 +1,8 @@
+---
+
+- name: Remove /usr/bin/packer
+  ansible.builtin.file:
+    state: absent
+    path: "/usr/bin/packer"
+  tags:
+    - uninstall
