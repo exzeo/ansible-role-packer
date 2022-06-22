@@ -1,0 +1,97 @@
+- name: Install dependencies
+  ansible.builtin.apt:
+    name: "{{ dependencies_packages }}"
+    state: present
+    force: true
+    update_cache: yes
+  register: package_ok
+  retries: 5
+  delay: 2
+  until: package_ok is success
+  tags:
+    - install
+    - install-dependency
+
+- name: Check Current packer Version
+  ansible.builtin.command: "packer --version"
+  register: "packer_current_version"
+  changed_when: packer_current_version.rc != 0 or (packer_version != "" and packer_version not in packer_current_version.stdout)
+  failed_when: false
+  tags:
+    - install
+    - check-current-version
+
+- name: Check latest packer
+  ansible.builtin.uri:
+    url: "https://api.github.com/repos/hashicorp/packer/releases/latest"
+    method: GET
+    return_content: true
+    status_code: 200
+    body_format: json
+  register: packer_json_response
+  retries: 5
+  delay: 2
+  when: packer_version|length == 0
+  tags: latest
+
+- name: Set Latest Version 
+  when: packer_version|length == 0
+  ansible.builtin.set_fact:
+    packer_version: "{{ packer_json_response.json.tag_name | replace('v','') }}"
+  tags: latest
+
+- name: Download packer archive 
+  ansible.builtin.get_url:
+    url: "{{ packer_download_url }}"
+    dest: "{{ packer_tmp_directory }}/packer-{{ packer_version }}"
+    mode: '0700'
+  register: download_archive
+  retries: 5
+  delay: 2
+  until: download_archive is success
+  when: packer_current_version.changed and packer_version is defined
+  tags:
+    - install
+    - download-archive
+
+- name: Unarchive packer # noqa no-handler
+  ansible.builtin.unarchive:
+    src: "{{ packer_tmp_directory }}/packer-{{ packer_version }}"
+    dest: "{{ packer_tmp_directory }}"
+    mode: '0755'
+    remote_src: true
+  register: unarchive_installer
+  when: download_archive.changed    
+  tags:
+    - install
+    - unarchive-installer
+
+- name: Copy packer binary into place. # noqa no-handler
+  ansible.builtin.copy:
+    src: "{{ packer_tmp_directory }}/packer"
+    dest: "/usr/bin/packer"
+    mode: '0755'
+    remote_src: true
+  register: copy_installer
+  become: true
+  when: unarchive_installer.changed
+  tags:
+    - install
+    - copy-installer
+
+- name: Cleanup Archive # noqa no-handler
+  ansible.builtin.file:
+    path: "{{ packer_tmp_directory }}/packer-{{ packer_version }}"
+    state: absent
+  when: copy_installer.changed
+  tags:
+    - install
+    - clean
+    
+- name: Cleanup Archive
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - "{{ packer_tmp_directory }}/packer-{{ packer_version }}"
+    - "{{ packer_tmp_directory }}/packer"

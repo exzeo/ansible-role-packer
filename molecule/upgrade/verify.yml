@@ -1,0 +1,19 @@
+---
+- name: Verify
+  hosts: all
+
+  tasks:
+    - name: Execute packer version to capture output
+      command: "packer --version"
+      register: packer_current_version
+      changed_when: false
+
+    - name: Ensure packer version output contains correct version string
+      assert:
+        that:
+          - packer_current_version.rc == 0
+
+    - name: Ensure packer is correct version
+      assert:
+        that:
+          - "'1.8.0' in packer_current_version.stdout"

@@ -1,0 +1,6 @@
+---
+# Packer Version to install
+packer_version: ""
+
+# Toggling this will uninstall from the server
+uninstall: false
