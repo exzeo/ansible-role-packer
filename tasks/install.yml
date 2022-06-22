@@ -36,7 +36,7 @@
 
 - name: Set Latest Version 
   when: packer_version|length == 0
-  set_fact:
+  ansible.builtin.set_fact:
     packer_version: "{{ packer_json_response.json.tag_name | replace('v','') }}"
   tags: latest
 
